@@ -11,6 +11,9 @@ import Data.Word
 import Data.Bits
 import Data.Default
 
+import Numeric.Natural
+import Numeric.Natural.Internal (Natural(..), unsafePred)
+
 import System.Environment
 import System.Exit
 import System.Console.GetOpt
@@ -31,7 +34,7 @@ randomByteStream = forever $ do
 
 -- |Consume a stream of random bytes and make a stream of random bit
 -- vectors
-nBitInts :: (Monad m, Num n, Bits n) => Int -> ConduitM Word8 n m ()
+nBitInts :: (Monad m, Num n, Whole n, Bits n) => Int -> ConduitM Word8 n m ()
 nBitInts n = let nbytes = (n + 7) `div` 8
                  mask = (1 `shift` n - 1) -- bit vector of n 1s
 
@@ -46,8 +49,15 @@ nBitInts n = let nbytes = (n + 7) `div` 8
 
                 in forever $ inner nbytes 0
 
+-- |Like a generalized "Natural"; asserts that the wrapped type is positive
+newtype Pos a = Pos { unwrapPos :: a } deriving (Read, Show, Eq, Ord, Num, Enum, Real, Bits, Integral)
 
-uniformsMod :: (Monad m, Integral n, Bits n) => n -> ConduitM Word8 n m ()
+instance Integral a => Whole (Pos a) where
+    toNatural (Pos x) = Natural . toInteger $ x
+    unsafePred (Pos x) = Pos $ pred x
+
+
+uniformsMod :: (Monad m, Whole n, Bits n) => n -> ConduitM Word8 n m ()
 uniformsMod n = let nbits = ceiling . logBase 2 . fromIntegral $ n
                     in nBitInts nbits =$= C.filter (< n)
 
@@ -55,7 +65,7 @@ uniformsMod n = let nbits = ceiling . logBase 2 . fromIntegral $ n
 -- a vector
 choices :: Monad m => Vector.Vector a -> ConduitM Word8 a m ()
 choices v = let length = Vector.length v
-                in uniformsMod length =$= C.map (v Vector.!)
+                in uniformsMod (Pos length) =$= C.map ((v Vector.!) . unwrapPos)
 
 -- |Breaks a stream into non-overlapping subsequences of a given size
 chunk :: Monad m => Int -> ConduitM a [a] m ()

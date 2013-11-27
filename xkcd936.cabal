@@ -19,10 +19,12 @@ executable xkcd936
   -- other-modules:       
   -- other-extensions:    
   default-extensions:  OverloadedStrings,
-                       ScopedTypeVariables
+                       ScopedTypeVariables,
+                       GeneralizedNewtypeDeriving
   build-depends:       base >=4.6 && <4.7,
                        salt,
                        mtl,
+                       nats,
                        text,
                        vector,
                        bytestring,
