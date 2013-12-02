@@ -79,19 +79,21 @@ chunk n = let inner 0 = return []
 
 data Configuration = Configuration {
     cfgDictionaryPath :: FilePath,
-    cfgHelp :: Bool,
-    cfgVerbose :: Bool,
-    cfgNumWords :: Int,
-    cfgNumPasswords :: Maybe Int
+    cfgHelp           :: Bool,
+    cfgVerbose        :: Bool,
+    cfgSeparator      :: Text.Text,
+    cfgNumWords       :: Int,
+    cfgNumPasswords   :: Maybe Int
 }
 
 instance Default Configuration where
     def = Configuration {
         cfgDictionaryPath = "",
-        cfgHelp = False,
-        cfgVerbose = False,
-        cfgNumWords = 4,
-        cfgNumPasswords = Nothing
+        cfgHelp           = False,
+        cfgVerbose        = False,
+        cfgSeparator      = " ",
+        cfgNumWords       = 4,
+        cfgNumPasswords   = Nothing
     }
 
 
@@ -116,7 +118,11 @@ options = [
 
     Option ['l'] ["length"]
         (ReqArg (\s c -> c { cfgNumWords = read s }) "NUM")
-        "Number of words in a password (default 4)"
+        "Number of words in a password (default 4)",
+
+    Option ['s'] ["separator"]
+        (ReqArg (\s c -> c { cfgSeparator = Text.pack s }) "STRING")
+        "Delimiter used to separate words in a password (default \" \")"
     ]
 
 -- |Prints usage information
@@ -164,4 +170,4 @@ main = do
     let valve = maybe (forever $ await >>= maybe (return ()) yield) C.isolate $ cfgNumPasswords config
 
     randomByteStream =$= choices passwords =$= chunk (cfgNumWords config) =$= valve $$
-        C.mapM_ $ Text.putStrLn . Text.intercalate " "
+        C.mapM_ $ Text.putStrLn . Text.intercalate (cfgSeparator config)
