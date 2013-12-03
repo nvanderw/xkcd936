@@ -6,7 +6,8 @@ The best way to build with a recent version of Cabal is using a sandbox:
     cabal sandbox init
 
 This package depends on the Haskell "salt" package, which is not currently
-available on Hackage. As such, you'll need to download it, and then run:
+available on Hackage. As such, you'll need to [download
+it](https://github.com/thoughtpolice/salt), and then run:
 
     cabal sandbox add-source salt/
 
