@@ -8,7 +8,7 @@ import Control.Arrow ((&&&))
 import Data.Functor ((<$>))
 
 import Data.Conduit
-import Data.Char (isUpper)
+import Data.Char (isUpper, isAlpha)
 import Data.Word
 import Data.Bits
 import Data.Default
@@ -20,6 +20,8 @@ import System.Environment
 import System.Exit
 import System.Console.GetOpt
 import System.IO
+
+import Text.Regex.Posix ((=~))
 
 import qualified Data.ByteString as B
 import qualified Data.Conduit.List as C
@@ -141,14 +143,22 @@ options = [
         (NoArg . modifyCfgFilter $ Text.all (not . isUpper))
         "Discard upper-case letters",
 
+    Option ['a'] ["alpha"]
+        (NoArg . modifyCfgFilter $ Text.all isAlpha)
+        "Allow only alphabetical characters",
+
     Option ['S'] ["singular"]
         (NoArg . modifyCfgFilter $ (/= 's') . Text.last)
         "Discard words that end in s",
 
     Option ['L'] ["wordlength"]
         (ReqArg (\s -> let l = read s
-                        in modifyCfgFilter ((<= l) . Text.length)) "LENGTH")
-        "Allow only the words below a certain length"
+                        in modifyCfgFilter $ (<= l) . Text.length) "LENGTH")
+        "Allow only the words below a certain length",
+    
+    Option ['r'] ["regex"]
+        (ReqArg (\s -> modifyCfgFilter $ (=~ s) . Text.unpack) "REGEX")
+        "Allow only words matching the given regular expression."
     ]
 
 -- |Prints usage information
