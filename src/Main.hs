@@ -4,9 +4,11 @@ import Crypto.NaCl.Random
 
 import Control.Monad
 import Control.Monad.Trans
+import Control.Arrow ((&&&))
 import Data.Functor ((<$>))
 
 import Data.Conduit
+import Data.Char (isUpper)
 import Data.Word
 import Data.Bits
 import Data.Default
@@ -82,6 +84,7 @@ data Configuration = Configuration {
     cfgHelp           :: Bool,
     cfgVerbose        :: Bool,
     cfgSeparator      :: Text.Text,
+    cfgWordFilter     :: Text.Text -> Bool,
     cfgNumWords       :: Int,
     cfgNumPasswords   :: Maybe Int
 }
@@ -92,10 +95,20 @@ instance Default Configuration where
         cfgHelp           = False,
         cfgVerbose        = False,
         cfgSeparator      = " ",
+        cfgWordFilter     = const True,
         cfgNumWords       = 4,
         cfgNumPasswords   = Nothing
     }
 
+
+-- |Conjunction on predicates (a -> Bool). This forms a commutative monoid, with
+-- (const True) as the identity.
+(&?) :: (a -> Bool) -> (a -> Bool) -> a -> Bool
+f &? g = uncurry (&&) . (f &&& g)
+
+-- |Adds the given predicate to the word filter
+modifyCfgFilter :: (Text.Text -> Bool) -> Configuration -> Configuration
+modifyCfgFilter pred cfg = cfg { cfgWordFilter = (cfgWordFilter cfg) &? pred }
 
 -- |Command line options
 options :: [OptDescr (Configuration -> Configuration)]
@@ -122,7 +135,20 @@ options = [
 
     Option ['s'] ["separator"]
         (ReqArg (\s c -> c { cfgSeparator = Text.pack s }) "STRING")
-        "Delimiter used to separate words in a password (default \" \")"
+        "Delimiter used to separate words in a password (default \" \")",
+
+    Option ['c'] ["lowercase"]
+        (NoArg . modifyCfgFilter $ Text.all (not . isUpper))
+        "Discard upper-case letters",
+
+    Option ['S'] ["singular"]
+        (NoArg . modifyCfgFilter $ (/= 's') . Text.last)
+        "Discard words that end in s",
+
+    Option ['L'] ["wordlength"]
+        (ReqArg (\s -> let l = read s
+                        in modifyCfgFilter ((<= l) . Text.length)) "LENGTH")
+        "Allow only the words below a certain length"
     ]
 
 -- |Prints usage information
@@ -141,7 +167,6 @@ parseOpts = do
             usage stderr
             exitWith . ExitFailure $ -1
 
-
 main = do
     config <- parseOpts
 
@@ -155,7 +180,7 @@ main = do
                 then return stdin
                 else openFile path ReadMode
 
-    passwords <- Vector.fromList . Text.lines <$> Text.hGetContents handle
+    passwords <- Vector.fromList . filter (cfgWordFilter config) . Text.lines <$> Text.hGetContents handle
             
     let length = Vector.length passwords
 
