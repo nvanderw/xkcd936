@@ -81,13 +81,18 @@ chunk n = let inner 0 = return []
                       Nothing -> return []
             in forever $ inner n >>= yield
 
+-- |Configuration option that sets either the password's length or the password's
+-- minimum acceptable entropy.
+data Strength = Length Int
+                | MinEntropy Double
+
 data Configuration = Configuration {
     cfgDictionaryPath :: FilePath,
     cfgHelp           :: Bool,
     cfgVerbose        :: Bool,
     cfgSeparator      :: Text.Text,
     cfgWordFilter     :: Text.Text -> Bool,
-    cfgNumWords       :: Int,
+    cfgStrength       :: Strength,
     cfgNumPasswords   :: Maybe Int
 }
 
@@ -98,7 +103,7 @@ instance Default Configuration where
         cfgVerbose        = False,
         cfgSeparator      = " ",
         cfgWordFilter     = const True,
-        cfgNumWords       = 4,
+        cfgStrength       = Length 4,
         cfgNumPasswords   = Nothing
     }
 
@@ -111,6 +116,21 @@ f &? g = uncurry (&&) . (f &&& g)
 -- |Adds the given predicate to the word filter
 modifyCfgFilter :: (Text.Text -> Bool) -> Configuration -> Configuration
 modifyCfgFilter pred cfg = cfg { cfgWordFilter = (cfgWordFilter cfg) &? pred }
+
+-- |Return (words, entropy)
+lengthAndEntropy :: Strength -> Int -> (Int, Double)
+lengthAndEntropy strength dictLength = case strength of
+  Length passLength -> (passLength, entropyInPassword dictLength passLength)
+  MinEntropy minEntropy -> (wordsNeeded, entropyInPassword dictLength wordsNeeded)
+                           where wordsNeeded = ceiling $ minEntropy / entropyPerWord dictLength
+
+-- |Given a dictionary length, calculate the entropy per word.
+entropyPerWord :: Int -> Double
+entropyPerWord = logBase 2 . fromIntegral
+
+-- |Given a dictionary length and password length, calculate the password's entropy.
+entropyInPassword :: Int -> Int -> Double
+entropyInPassword dictLength length = (fromIntegral length) * entropyPerWord dictLength
 
 -- |Command line options
 options :: [OptDescr (Configuration -> Configuration)]
@@ -132,8 +152,12 @@ options = [
         "Limit number of generated passwords (default ∞)",
 
     Option ['l'] ["length"]
-        (ReqArg (\s c -> c { cfgNumWords = read s }) "NUM")
+        (ReqArg (\s c -> c { cfgStrength = Length $ read s }) "NUM")
         "Number of words in a password (default 4)",
+
+    Option ['e'] ["min_entropy"]
+        (ReqArg (\s c -> c { cfgStrength = MinEntropy $ read s}) "NUM")
+        "Minimum entropy of the password.",
 
     Option ['s'] ["separator"]
         (ReqArg (\s c -> c { cfgSeparator = Text.pack s }) "STRING")
@@ -193,10 +217,10 @@ main = do
     passwords <- Vector.fromList . filter (cfgWordFilter config) . Text.lines <$> Text.hGetContents handle
             
     let length = Vector.length passwords
+    let (words, entropy) = lengthAndEntropy (cfgStrength config) length
 
     when (cfgVerbose config) $ do
-        hPutStrLn stderr $ "Number of words: " ++ show length
-        let entropy = (logBase 2 . fromIntegral $ length) * fromIntegral (cfgNumWords config)
+        hPutStrLn stderr $ "Number of words: " ++ show words
         hPutStrLn stderr $ "Password entropy: " ++ show entropy ++ " bits"
 
     -- If the user specifies a finite number of passwords, use "isolate" to
@@ -204,5 +228,5 @@ main = do
     -- values
     let valve = maybe (forever $ await >>= maybe (return ()) yield) C.isolate $ cfgNumPasswords config
 
-    randomByteStream =$= choices passwords =$= chunk (cfgNumWords config) =$= valve $$
+    randomByteStream =$= choices passwords =$= chunk (words) =$= valve $$
         C.mapM_ $ Text.putStrLn . Text.intercalate (cfgSeparator config)
