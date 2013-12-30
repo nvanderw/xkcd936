@@ -221,7 +221,7 @@ main = do
     let (wordsInPass, entropy) = lengthAndEntropy (cfgStrength config) dictLength
 
     when (cfgVerbose config) $ do
-        hPutStrLn stderr $ "Number of words: " ++ show wordsInPass
+        hPutStrLn stderr $ "Length of password in words: " ++ show wordsInPass
         hPutStrLn stderr $ "Password entropy: " ++ show entropy ++ " bits"
 
     -- If the user specifies a finite number of passwords, use "isolate" to
