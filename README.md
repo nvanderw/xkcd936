@@ -23,6 +23,17 @@ To list command-line options, run:
 
     xkcd936 -h
 
+A typical invocation will look like:
+
+    xkcd936 -d /usr/share/dict/words -e 80 -v -n1
+
+This generates a single password (-n1) using the word list at
+/usr/share/dict/words. The -e flag specifies the minimum entropy of
+a generated password, and is used to compute the password length in
+words. As such, -e and -l are mutually exclusive. -e is recommended
+over -l because it allows you to make guarantees about your password
+strength!
+
 This utility requires a dictionary file of your choosing, which is simply
 a list of possible words separated by newlines. This dictionary can be
 specified using the -d option, but will default to stdin. You can take
