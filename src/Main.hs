@@ -62,7 +62,7 @@ instance Integral a => Whole (Pos a) where
 
 
 uniformsMod :: (Monad m, Whole n, Bits n) => n -> ConduitM Word8 n m ()
-uniformsMod n = let nbits = ceiling . logBase 2 . fromIntegral $ n
+uniformsMod n = let nbits = ceiling . logBase (2 :: Double) . fromIntegral $ n
                     in nBitInts nbits =$= C.filter (< n)
 
 -- |Given a stream of random bytes, creates random (uniform) elements of
