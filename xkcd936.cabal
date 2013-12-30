@@ -33,5 +33,5 @@ executable xkcd936
                        conduit >= 1.0.0
   -- hs-source-dirs:      
   default-language:    Haskell2010
-  ghc-options:         -O3
+  ghc-options:         -O3 -Wall
   main-is: src/Main.hs
