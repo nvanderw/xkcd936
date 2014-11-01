@@ -21,7 +21,7 @@ executable xkcd936
   default-extensions:  OverloadedStrings,
                        ScopedTypeVariables,
                        GeneralizedNewtypeDeriving
-  build-depends:       base >=4.6 && <4.7,
+  build-depends:       base >=4.6,
                        salt,
                        mtl,
                        nats,
